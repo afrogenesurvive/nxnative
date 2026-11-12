@@ -16,6 +16,10 @@ A connected game controller hides the touch controls, all but the gear, and keep
 
 In portrait (an iPad, an iPhone Duo's inner screen) the picture sits above the controls; so it does on a Duo half folded, the picture on the upper half. An iPad game also runs in a window of any size (Stage Manager).
 
+## Mac keyboard
+
+The Mac app's keyboard → Switch controls: [Mac keyboard](mac-keyboard.md). Edit `dm/host/keymap.tsv` and rebuild to rebind.
+
 ## Rumble
 
 Game vibration uses the iPhone's haptic engine or a compatible connected controller. Controllers with separate left/right haptic outputs keep those effects separate. The settings screen's **Game rumble** and **Rumble strength** control it independently of **Touch feedback**. Phone rumble approximates the Switch's effects; physical feel and controller compatibility still need device testing.

@@ -1,0 +1,32 @@
+# nxnative Mac keyboard map: one row per control, edited to rebind the keys.
+# Columns: control  keycode  modifier   (tab-separated; the modifier is optional and only the right stick takes one)
+#   control:  A B X Y LS RS L R ZL ZR Plus Minus Left Up Right Down (the buttons, in the Switch bit order)
+#             LLeft LUp LDown LRight (the left stick)   RLeft RUp RRight RDown (the right stick)   Shake
+#   keycode:  the macOS virtual key code (0..255, decimal or 0x hex), e.g. 38 is J, 13 is W, 36 is Return, 49 is Space.
+#   modifier: shift / option / control / command, or empty (the right stick only; the default shares the arrow keys, with Shift for the right stick).
+# See docs/mac-keyboard.md for the default and a key code reference. A change here rebuilds the host on the next Mac app build.
+A	38
+B	40
+X	32
+Y	34
+LS	3
+RS	5
+L	12
+R	14
+ZL	6
+ZR	8
+Plus	36
+Minus	48
+Left	123
+Up	126
+Right	124
+Down	125
+LLeft	0
+LUp	13
+LDown	1
+LRight	2
+RLeft	123	shift
+RUp	126	shift
+RRight	124	shift
+RDown	125	shift
+Shake	49

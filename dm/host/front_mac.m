@@ -5,7 +5,7 @@
 // Cheats (hle_cheats.c): the Cheats menu's rows toggle, reload (⌘R) and open the cheats folder; its first item "Show Cheats
 // Window" (⌘⇧C, or DM_CHEATS_WINDOW=1 at launch) opens a Cheats panel beside the game: sections, search, the master switch,
 // safe mode, values, details and the import of cheat files (see the code below).
-// Key map (Nintendo layout): WASD left stick, arrow keys D-pad (with Shift held: the right stick, for the camera), J=A K=B U=X I=Y, Q=L E=R, Z=ZL C=ZR, F=press left stick G=press right stick, Return=+ Tab=−, Space=shake the controller.
+// Key map: dm/host/keymap.tsv (edit to rebind; the Makefile turns it into gen/keymap.h). Default: WASD left stick, arrow keys D-pad (with Shift held: the right stick, for the camera), J=A K=B U=X I=Y, Q=L E=R, Z=ZL C=ZR, F=press left stick G=press right stick, Return=+ Tab=−, Space=shake the controller. See docs/mac-keyboard.md.
 // Controllers: face buttons as on the iPhone, by position (right A, bottom B, top X, left Y) or on a Nintendo pad by its labels (pad_apple.h), shoulders L R, triggers ZL ZR, Menu + Options −, both sticks and their presses.
 // Each controller is a player of its own (local co-op): the first one connected is player 1, together with the keyboard, the next player 2, and so on up to 8 (pad_slots.h);
 // DM_PAD_MERGE=1 merges every controller into player 1 instead, DM_KBD_PLAYER=own makes the keyboard player 1 on its own, with the controllers from player 2 on.
@@ -24,6 +24,7 @@
 #include "pad_apple.h"
 #include "pad_hid_mac.h"
 #include "pad_switch2_apple.h"
+#include "gen/keymap.h"
 static int s2pad_player(s2_pad *d);   // the Switch 2 pads' player slots (below, beside the raw HID pads')
 static void s2pad_read(s2_pad *d);
 static int g_merge_s2_rumble;   // DM_PAD_MERGE: player 1's rumble goes to the Switch 2 pads (merge_rumble_to_s2)
@@ -33,6 +34,7 @@ static void merge_rumble_to_s2(int on);
 #include "ctrl_prompt.h"
 #include <signal.h>
 #include <math.h>
+#include <string.h>
 #include <sys/stat.h>
 
 static CAMetalLayer *g_layer;
@@ -146,14 +148,8 @@ static void push(void) {
     int32_t rx = (g_rr - g_rl) * 32767, ry = (g_ru - g_rd) * 32767;
     dm_input_set(g_btn, lx, ly, rx, ry);
 }
-static int key_bit(unsigned short code) {
-    switch (code) {
-        case 38: return 0;  case 40: return 1;  case 32: return 2;  case 34: return 3;    // J K U I → A B X Y
-        case 3: return 4;   case 5: return 5;                                            // F G → press stick
-        case 12: return 6;  case 14: return 7;  case 6: return 8;   case 8: return 9;    // Q E Z C → L R ZL ZR
-        case 36: return 10; case 48: return 11;                                          // Return Tab → + −
-        case 123: return 12; case 126: return 13; case 124: return 14; case 125: return 15; // ← ↑ → ↓
-    }
+static int key_bit(unsigned short code) {   // a key code of the map's buttons (keymap_btn, gen/keymap.h) as its button bit 0..15, or -1
+    for (int b = 0; b < 16; b++) if (keymap_btn[b] == code) return b;
     return -1;
 }
 // fn held with a letter: the arrow and function keys carry the same modifier flag, so the key must be a letter for this to be a Globe shortcut
@@ -163,22 +159,32 @@ static int fn_shortcut(NSEvent *e) {
 }
 static ctrl_prompt g_cp; static int g_cp_confirm, g_cp_cancel;   // the controller applet's prompt (front_ctrl_support) and a key pressed in it since its last step
 static int cp_poll(void);
+static NSEventModifierFlags rstick_mod(void) {   // the right stick's modifier, as the key map names it (shift by default)
+    const char *m = keymap_right_mod;
+    if (!strcmp(m, "shift")) return NSEventModifierFlagShift;
+    if (!strcmp(m, "option")) return NSEventModifierFlagOption;
+    if (!strcmp(m, "control")) return NSEventModifierFlagControl;
+    if (!strcmp(m, "command")) return NSEventModifierFlagCommand;
+    return 0;
+}
 static void on_key(NSEvent *e, int down) {
     if (!g_input_on) return;
     unsigned short c = e.keyCode;
-    if (cp_blocks_input(g_cp.phase)) {   // the prompt has the keyboard: Return or J (A) is done, Escape or K (B) closes it, no key reaches the game
-        if (down && g_cp.phase == CP_OPEN) { if (c == 53 || c == 40) g_cp_cancel = 1; else if (c == 36 || c == 38) g_cp_confirm = 1; cp_poll(); }
+    if (cp_blocks_input(g_cp.phase)) {   // the prompt has the keyboard: Plus/Return or A is done, Escape or B closes it, no key reaches the game
+        if (down && g_cp.phase == CP_OPEN) { if (c == 53 || c == keymap_btn[1]) g_cp_cancel = 1; else if (c == keymap_btn[10] || c == keymap_btn[0]) g_cp_confirm = 1; cp_poll(); }
         return;
     }
-    switch (c) { case 13: g_w = down; break; case 0: g_a = down; break; case 1: g_s = down; break; case 2: g_d = down; break; }
-    // An arrow key pressed with Shift held is the right stick until it is released; without Shift, the D-pad. The keyboard had no right stick: a 3D game's camera
-    // could be turned only with a controller (Donkey Kong Bananza)
-    int *rs = c == 123 ? &g_rl : c == 126 ? &g_ru : c == 124 ? &g_rr : c == 125 ? &g_rd : NULL;
-    if (rs && (down ? (e.modifierFlags & NSEventModifierFlagShift) != 0 : *rs)) { *rs = down; push(); return; }
+    int *l = c == keymap_left[0] ? &g_a : c == keymap_left[1] ? &g_w : c == keymap_left[2] ? &g_s : c == keymap_left[3] ? &g_d : NULL;   // LLeft LUp LDown LRight
+    if (l) *l = down;
+    // A right-stick key with its modifier held is the right stick; without it, the D-pad (the default shares the arrows). The keyboard had no right stick:
+    // a 3D game's camera could be turned only with a controller (Donkey Kong Bananza)
+    int *rs = c == keymap_right[0] ? &g_rl : c == keymap_right[1] ? &g_ru : c == keymap_right[2] ? &g_rr : c == keymap_right[3] ? &g_rd : NULL;
+    NSEventModifierFlags mod = rstick_mod();
+    if (rs && (down ? (e.modifierFlags & mod) == mod : *rs)) { *rs = down; push(); return; }
     int b = key_bit(c);
-    uint64_t m = b >= 0 ? 1ull << b : c == 49 ? DM_BTN_SHAKE : 0;   // Space: shaken while held
+    uint64_t m = b >= 0 ? 1ull << b : c == keymap_shake ? DM_BTN_SHAKE : 0;   // Shake: shaken while held
     g_btn = down ? (g_btn | m) : (g_btn & ~m);
-    if (down && (m || c == 13 || c == 0 || c == 1 || c == 2)) cursor_hide_for_input();   // a key the game takes (WASD: the left stick)
+    if (down && (m || l)) cursor_hide_for_input();   // a key the game takes (the left stick included)
     push();
 }
 

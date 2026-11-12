@@ -11,3 +11,9 @@ dm/games/*/cb_extent.tsv
 .coverage
 .coverage.*
 /coverage.json
+
+# Personal local notes (toolchain details, testing logs) — never committed
+personal/
+
+# devsec_cogdebt derived artifacts
+.devsec_cogdebt/
