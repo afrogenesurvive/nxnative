@@ -4,24 +4,24 @@ The Mac app maps the keyboard to the Switch controller. The default is below; ed
 
 ## Default map
 
-| Key | Switch control |
-|---|---|
-| **J** | A (confirm) |
-| **K** | B (back / cancel) |
-| **U** | X |
-| **I** | Y |
-| **F** | Press left stick (LS) |
-| **G** | Press right stick (RS) |
-| **Q** | L |
-| **E** | R |
-| **Z** | ZL |
-| **C** | ZR |
-| **Return** | + (Plus) |
-| **Tab** | − (Minus) |
-| **← ↑ → ↓** | D-pad |
-| **Shift + ← ↑ → ↓** | Right stick (the camera in 3D games) |
-| **W A S D** | Left stick (W up, A left, S down, D right) |
-| **Space** | Shake the controller |
+| Key                 | Switch control                             |
+| ------------------- | ------------------------------------------ |
+| **J**               | A (confirm)                                |
+| **K**               | B (back / cancel)                          |
+| **U**               | X                                          |
+| **I**               | Y                                          |
+| **F**               | Press left stick (LS)                      |
+| **G**               | Press right stick (RS)                     |
+| **Q**               | L                                          |
+| **E**               | R                                          |
+| **Z**               | ZL                                         |
+| **C**               | ZR                                         |
+| **Return**          | + (Plus)                                   |
+| **Tab**             | − (Minus)                                  |
+| **← ↑ → ↓**         | D-pad                                      |
+| **Shift + ← ↑ → ↓** | Right stick (the camera in 3D games)       |
+| **W A S D**         | Left stick (W up, A left, S down, D right) |
+| **Space**           | Shake the controller                       |
 
 The left mouse button is the touchscreen. In the controller-pairing prompt, Return or J is done, Escape or K closes it.
 
