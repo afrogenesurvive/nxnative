@@ -801,6 +801,13 @@ Most service calls can be found before they crash, before the first boot or the 
 - **Found on:** [Fire Emblem Engage](../../dm/games/0100A6301214E000/README.md); [DRAGON QUEST XI S](../../dm/games/01006C300E9F0000/README.md) (`CheckFreeCommunicationPermission`).
 - **Note:** `pctl::CheckStereoVisionPermission` is under [Applet resource user ID, launch parameters and VR mode](#applet-resource-user-id-launch-parameters-and-vr-mode).
 
+### The application's server environment
+
+- **Symptom:** `[RED] sf: the game connects to service nsd:a … nsd:u itself, which the host does not serve`, then `game called nn::diag abort: Result 0xe8d, call site sdk+0x3f4bbc` a few seconds after boot, backtrace `sdk+0x3f4bbc sdk+0x3f34c8 main+0x31b2dcc …` (Once Upon a Katamari, SDK 19.3.3).
+- **Cause:** `nn::nsd::GetApplicationServerEnvironmentType` opens the `nsd:a` / `nsd:u` service object (`GetServiceObjectByHipc`); when it cannot, the SDK hardcodes the abort (Result 0xe8d). The host had hooked only `nsd::Resolve` / `ResolveEx` and `GetEnvironmentIdentifier`, not this getter.
+- **Fix:** the getter is taken over to return 0, the retail server environment (`hle_offline.c`, beside the `GetEnvironmentIdentifier` → "lp1" hook). The SDK itself initialises the value to 0 before the service fills it, and the game maps the answer through a 5-entry table (default 3), so any of 0–4 is safe; offline there is no server.
+- **Found on:** [Once Upon a Katamari](../../dm/games/0100BDF0197C8000/README.md) (update 1.0.2, SDK 19.3.3; no profile in the repository yet).
+
 ### Network interface, LDN, socket and play report calls
 
 - **Symptom:** play report calls met entering the save select (3D World); undefined `nn::ldn::` / `nn::socket::` imports with no hook, found from the import list before they were met (Big Brain Academy).

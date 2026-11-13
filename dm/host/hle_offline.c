@@ -143,6 +143,10 @@ HLE_FORCE("_ZN2nn4nifm18GetCurrentIpConfigEPNS0_10Ipv4ConfigEPiPNS0_10Ipv6Config
           void *v4, int *n4, void *v6, int *n6, int c4, int c6) { (void)v4; (void)v6; (void)c4; (void)c6; if (n4) *n4 = 0; if (n6) *n6 = 0; return RES_FAIL; }
 // EnvironmentIdentifier = char[8]: retail environment "lp1"
 HLE_FORCE("_ZN2nn3nsd24GetEnvironmentIdentifierEPNS0_21EnvironmentIdentifierE", "server environment name: retail lp1", void, h_nsd_EnvId, char *out) { memset(out, 0, 8); memcpy(out, "lp1", 3); }
+// The application's server environment (nn::oe::ServerEnvironmentType: which Nintendo server the game talks to). The SDK's own opens the nsd:a / nsd:u service
+// (GetServiceObjectByHipc) and aborts with 0xe8d when it cannot, which the host never serves (Once Upon a Katamari, SDK 19: GetApplicationServerEnvironmentType at
+// main+0x31b2dcc maps the answer through a 5-entry table). The SDK initialises the value to 0 before the service fills it: a fixed retail (0) answer, offline.
+HLE_FORCE("_ZN2nn3nsd35GetApplicationServerEnvironmentTypeEv", "application server environment: retail (0), offline", int, h_nsd_AppEnvType, void) { return 0; }
 
 // ---------- friends: newer SDK overloads ----------
 HLE_FORCE("_ZN2nn7friends12SetAllocatorEPFPvmEPFvS1_mE", "friends library allocator; no session is created, ignored", void, h_fr_SetAlloc, void *a, void *f) { (void)a; (void)f; }
