@@ -332,17 +332,17 @@ static void drain(int nout) {
     assert(d.npend == 1 && d.ninfree == MD_NIN - 1);
     for (int i = 0; i < nout; i++) d.out[i].used = 0;
     md_pump(&d);
-    // a video decoder's results are queued for the deferred thread, due at once, not signalled on the decoding thread (md_pump_ev: it is not a guest thread)
-    int queued_out = 0; for (int i = 0; i < g_ndfq; i++) if (g_dfq[i].d == &d && g_dfq[i].ev == 1) { assert(g_dfq[i].due == now_ns()); queued_out = 1; }
-    assert(queued_out); md_defer_drop(&d); assert(!g_ndfq);
-    for (;;) {   // the client returns each output it takes, so the next one is always ready
+    // The pump's notifications coalesce. The client takes one output per auto-cleared event, including when the pump has finished and nothing more will be decoded.
+    for (;;) {
+        assert(g_ndfq == 1 && g_dfq[0].d == &d && g_dfq[0].ev == 1 && g_dfq[0].due == now_ns());
+        md_defer_drop(&d);   // the guest consumed this notification before calling AcquireOutputBufferIndex
         assert(!h_movie_AcqOut(self, &idx, &pts, &flags, &left));
         if (++got < 4) assert(d.out[idx].pic && pts == 0 && !(flags & 4));
         else { assert(!d.out[idx].pic && pts == 777 && flags == 4 && !d.avc_drain && !mavc_queued(d.avc) && !left); break; }
         assert(md_rel(&d, idx));
     }
     assert(md_rel(&d, idx));
-    assert(h_movie_AcqOut(self, &idx, &pts, &flags, &left) == MD_NO_OUTPUT && d.ninfree == MD_NIN);
+    assert(h_movie_AcqOut(self, &idx, &pts, &flags, &left) == MD_NO_OUTPUT && d.ninfree == MD_NIN && !g_ndfq);
     assert(h_movie_SendIn(self, inputs[0], 0, 0, 999, 4) == 0x100b && d.ninfree == MD_NIN);   // the consumed first EOS is no longer client-owned
     assert(!h_movie_Flush(self) && !d.in_eos);
     assert(!h_movie_AcqIn(self, &idx, &left));
@@ -435,6 +435,41 @@ static void native_buffers(void) {
     assert(md_out_tex(&d, 0, &b) == 0x100b && native_copies == 2);
     pthread_mutex_destroy(&d.mu);
 }
+static void save_color_key(void *md, const char *key, int value) {
+    if (!strcmp(key, "nv12-colorspace")) *(int *)md = value;
+}
+static void ignore_rect(void *md, const char *key, int l, int t, int r, int b) {
+    (void)md; (void)key; (void)l; (void)t; (void)r; (void)b;
+}
+static void color_keys(void) {
+    mdec_t d = {.type = MD_TYPE_AVC, .fmt = MD_FMT_NV12, .w = 1920, .h = 1080, .avc = mavc_new(NULL)};
+    G.set_i32 = save_color_key;
+    G.set_rect = ignore_rect;
+    int key = -1;
+    md_format(&d, &key);
+    assert(key == 3);   // SDK 4.4.1, BT.709 limited
+    G.native_color_keys = 1;
+    md_format(&d, &key);
+    assert(key == 2);   // SDK 7.3.2, same planes
+    d.h = 480;
+    md_format(&d, &key);
+    assert(key == 4);   // BT.601 limited
+    mavc_free(d.avc);
+    d.avc = NULL;
+    d.type = MD_TYPE_VP9;
+    d.vpx_full = 1;
+    d.vpx_cs = VPX_CS_BT_601;
+    md_format(&d, &key);
+    assert(key == 1);   // BT.601 full
+    d.vpx_cs = VPX_CS_BT_709;
+    md_format(&d, &key);
+    assert(key == 3);   // BT.709 full
+    G.native_color_keys = 0;
+    md_format(&d, &key);
+    assert(key == 4);
+    puts("movie NV12 metadata: SDK 4.4.1 and 7.3.2 keys match the matrix and delivered range");
+}
+
 int main(void) {
     dpb_order(); dpb_reordered_b(); dpb_limits(); pump_due();
     puts("AVC DPB: reference occupancy drives output, with variable/zero PTS, POC and frame_num wraps, IDR/Flush, reordered B-pictures, bounds, unsupported marking and slot-release pumping");
@@ -475,7 +510,8 @@ int main(void) {
     mavc_free(a);
     puts("AVC: POC type 2 returns the final picture without EOS; other POC modes retain reordering and EOS drain");
     drain(MD_NOUT_VIDEO); drain(2);
-    puts("AVC end of stream: every queued picture leaves without the flag, then an output without a picture carries it, also when the client holds the slots");
+    puts("AVC end of stream: one output per event drains every picture, then a pictureless output carries the flag; an empty queue stays quiet");
     terminal_inputs();
+    color_keys();
     puts("movie inputs: already-held inputs after EOS are returned once without another output; rejected sends keep the stream open, Flush accepts a new stream");
 }
